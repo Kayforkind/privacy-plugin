@@ -53,7 +53,8 @@ if (existsSync(skillsDir)) {
       fail(`skill folder "${name}" has no SKILL.md`);
       continue;
     }
-    const text = readFileSync(file, 'utf8');
+    // Normalize CRLF so the frontmatter check works on Windows-checked-out files too.
+    const text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
     const fm = /^---\n([\s\S]*?)\n---/.exec(text);
     if (!fm) {
       fail(`${name}/SKILL.md has no frontmatter`);
