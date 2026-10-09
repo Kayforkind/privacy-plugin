@@ -27,6 +27,19 @@ try {
   fail(`plugin.json unreadable: ${e.message}`);
 }
 
+// 1b. the marketplace entry must describe the same plugin version as plugin.json
+try {
+  const market = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  const entry = (market.plugins ?? []).find((p) => p.name === manifest?.name);
+  if (!entry) fail(`marketplace.json has no plugin entry named "${manifest?.name}"`);
+  else {
+    if (entry.version !== manifest.version) fail(`marketplace version ${entry.version} does not match plugin.json ${manifest.version}`);
+    if (entry.description !== manifest.description) fail('marketplace description does not match plugin.json description');
+  }
+} catch (e) {
+  fail(`marketplace.json unreadable: ${e.message}`);
+}
+
 // 2. MCP config and server path
 let server;
 try {

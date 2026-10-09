@@ -13,5 +13,9 @@
     "read-only",
     "mcp"
   ],
-  "homepage": "https://navigatorslab.com/apps/privacy-plugin/"
+  "homepage": "https://github.com/Kayforkind/privacy-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kayforkind/privacy-plugin"
+  }
 }
