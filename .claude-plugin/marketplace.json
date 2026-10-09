@@ -1,0 +1,12 @@
+{
+  "name": "navigatorslab",
+  "owner": { "name": "NavigatorsLab" },
+  "plugins": [
+    {
+      "name": "navigatorslab-privacy-tools",
+      "source": "./",
+      "description": "Local-only PDF tools for AI agents: inspect, search and extract text without uploading anything. Read-only by default.",
+      "version": "0.2.0"
+    }
+  ]
+}

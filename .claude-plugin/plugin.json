@@ -1,0 +1,17 @@
+{
+  "name": "navigatorslab-privacy-tools",
+  "version": "0.2.0",
+  "description": "Local-only PDF tools for AI agents: inspect, search and extract text from PDFs without uploading them. Read-only by default.",
+  "author": {
+    "name": "NavigatorsLab"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pdf",
+    "privacy",
+    "local-first",
+    "read-only",
+    "mcp"
+  ],
+  "homepage": "https://navigatorslab.com/apps/privacy-plugin/"
+}
