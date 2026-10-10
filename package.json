@@ -1,0 +1,24 @@
+{
+  "name": "navigatorslab-privacy-tools",
+  "version": "0.2.2",
+  "private": true,
+  "type": "module",
+  "description": "Read-only PDF MCP tools with local parsing. Extracted text is returned to the AI client and may reach its model provider.",
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "node validate.mjs",
+    "verify": "node --check validate.mjs && npm test"
+  },
+  "files": [
+    ".claude-plugin/",
+    ".mcp.json",
+    "server/",
+    "skills/",
+    "validate.mjs",
+    "SECURITY.md",
+    "LICENSE"
+  ]
+}

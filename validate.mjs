@@ -6,7 +6,8 @@
  * and each skill has name/description frontmatter matching its folder.
  * Exit: 0 valid · 1 invalid
  */
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +53,7 @@ try {
     else if (!existsSync(resolve(expand(entry)))) fail(`server entry not found: ${entry}`);
     if (server.args?.some((a) => /^[A-Za-z]:[\\/]|^\/(?!\$\{)/.test(a))) fail('server args contain an absolute machine path; use ${CLAUDE_PLUGIN_ROOT}');
     if (!server.args?.includes('--read-only')) fail('server is not configured read-only');
+    if (server.command !== 'node' || JSON.stringify(server.args) !== JSON.stringify(['${CLAUDE_PLUGIN_ROOT}/server/pdfstudio-mcp.mjs', '--root', '.', '--read-only'])) fail('server configuration must match the reviewed bundled entrypoint and read-only arguments');
   }
 } catch (e) {
   fail(`.mcp.json unreadable: ${e.message}`);
@@ -84,8 +86,15 @@ if (existsSync(skillsDir)) {
 
 // 4. start the server exactly as configured and list its tools
 async function listTools() {
-  if (!server?.args) return null;
-  const p = spawn(server.command, server.args.map(expand), { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
+  if (!server?.args || problems.length) return null;
+  const sandbox = mkdtempSync(join(tmpdir(), 'privacy-plugin-validation-'));
+  const outside = mkdtempSync(join(tmpdir(), 'privacy-plugin-outside-'));
+  const fixture = 'security-fixture.pdf';
+  const bytes = readFileSync(join(ROOT, 'server/security-fixture.pdf'));
+  writeFileSync(join(sandbox, fixture), bytes);
+  writeFileSync(join(outside, fixture), bytes);
+  symlinkSync(outside, join(sandbox, 'outside-link'), process.platform === 'win32' ? 'junction' : 'dir');
+  const p = spawn(server.command, server.args.map(expand), { cwd: sandbox, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = '';
   const waiters = new Map();
   p.stdout.on('data', (d) => {
@@ -104,20 +113,52 @@ async function listTools() {
     }
   });
   let id = 0;
+  let processError;
+  p.on('error', (e) => { processError = e; });
+  p.stdin.on('error', (e) => { processError = e; });
+  p.stderr.resume();
   const call = (method, params) =>
     new Promise((res, rej) => {
       const k = ++id;
-      waiters.set(k, res);
+      const timer = setTimeout(() => { waiters.delete(k); rej(processError ?? new Error(`timeout waiting for ${method}`)); }, 5000);
+      waiters.set(k, (message) => { clearTimeout(timer); waiters.delete(k); res(message); });
       p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: k, method, params }) + '\n');
-      setTimeout(() => rej(new Error(`timeout waiting for ${method}`)), 15000);
     });
   try {
     await call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'plugin-validate', version: '0' } });
     p.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
     const res = await call('tools/list', {});
+
+    for (const [name, args] of [
+      ['pdf_info', { path: fixture }],
+      ['pdf_extract_text', { path: fixture }],
+      ['pdf_search_text', { path: fixture, query: 'needle' }],
+    ]) {
+      const response = await call('tools/call', { name, arguments: args });
+      if (response.error || response.result?.isError) throw new Error(`${name} failed on fixture: ${JSON.stringify(response.error ?? response.result)}`);
+      const text = response.result.content.map((c) => c.text ?? '').join('');
+      if (!text.includes('UNTRUSTED')) throw new Error(`${name} lacks untrusted content notice`);
+      if (name !== 'pdf_info' && !text.includes('needle')) throw new Error(`${name} did not return fixture text`);
+    }
+    for (const [name, args] of [
+      ['pdf_info', { path: join(outside, fixture) }],
+      ['pdf_info', { path: join('..', outside.split(/[\\/]/).at(-1), fixture) }],
+      ['pdf_info', { path: join('outside-link', fixture) }],
+      ['pdf_extract_text', { path: fixture, pages: '1-999999999' }],
+      ['pdf_search_text', { path: fixture, query: 'x'.repeat(1001) }],
+      ['pdf_rotate', { path: fixture, output: 'should-not-exist.pdf', angle: 90 }],
+    ]) {
+      const response = await call('tools/call', { name, arguments: args });
+      if (!response.error && !response.result?.isError) throw new Error(`${name} unsafe request was not rejected`);
+    }
+    if (!readFileSync(join(sandbox, fixture)).equals(bytes) || existsSync(join(sandbox, 'should-not-exist.pdf'))) throw new Error('read-only server changed files');
     return res.result.tools.map((t) => t.name);
   } finally {
+    const stopped = p.exitCode !== null || p.signalCode !== null ? Promise.resolve() : new Promise((res) => p.once('exit', res));
     p.kill();
+    await stopped;
+    rmSync(sandbox, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 }
 

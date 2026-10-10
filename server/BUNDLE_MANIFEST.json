@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-10-10T03:49:49.338Z",
+  "source": "NavigatorsLab-PDF-Studio/packages/mcp/src/index.ts (local hardened checkout)",
+  "compiler": "TypeScript build + esbuild bundle; Node20 target; PDF.js legacy worker copied separately",
+  "packages": [
+    {
+      "name": "@modelcontextprotocol/sdk",
+      "version": "1.31.0",
+      "license": "MIT"
+    },
+    {
+      "name": "@pdf-lib/standard-fonts",
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "@pdf-lib/upng",
+      "version": "1.0.1",
+      "license": "MIT"
+    },
+    {
+      "name": "ajv",
+      "version": "8.20.0",
+      "license": "MIT"
+    },
+    {
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "license": "MIT"
+    },
+    {
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "license": "MIT"
+    },
+    {
+      "name": "fast-uri",
+      "version": "3.1.8",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "jpeg-js",
+      "version": "0.4.4",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "pako",
+      "version": "1.0.11",
+      "license": "(MIT AND Zlib)"
+    },
+    {
+      "name": "pdf-lib",
+      "version": "1.17.1",
+      "license": "MIT"
+    },
+    {
+      "name": "pdfjs-dist",
+      "version": "4.10.38",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "pngjs",
+      "version": "7.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "tslib",
+      "version": "1.14.1",
+      "license": "0BSD"
+    },
+    {
+      "name": "zod",
+      "version": "3.25.76",
+      "license": "MIT"
+    },
+    {
+      "name": "zod-to-json-schema",
+      "version": "3.25.2",
+      "license": "ISC"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "pdfstudio-mcp.mjs",
+      "sha256": "cd2a4eb69ef7d242dd911fcde3186e4ad7bf58264d43272edd6ebfcc040de072"
+    },
+    {
+      "name": "pdf.worker.mjs",
+      "sha256": "5e9f76bd5e65fbd1602b29fc50e50490aeeacd34a715b2282b73f7e8029242e0"
+    }
+  ],
+  "audit": "Source workspace npm audit --omit=dev reported zero known advisories on this run; standalone plugin has no installed runtime packages, so its npm audit alone does not assess the bundle."
+}

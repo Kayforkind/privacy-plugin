@@ -33429,6 +33429,7 @@ var require_png2 = __commonJS({
 // packages/mcp/dist/index.js
 import { readFileSync, writeFileSync, mkdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, basename, isAbsolute, resolve, relative, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -75775,6 +75776,8 @@ function readPdf(root, p) {
   const abs = resolveWithin(root, p);
   if (!statSync(abs).isFile())
     throw new Error(`not a regular file: ${p}`);
+  if (statSync(abs).size > 25 * 1024 * 1024)
+    throw new Error("PDF exceeds 25 MiB limit");
   return new Uint8Array(readFileSync(abs));
 }
 function writePdf(root, p, bytes) {
@@ -75793,14 +75796,21 @@ function parsePagesList(v) {
     if (m) {
       const a = +m[1];
       const b = +m[2];
+      if (![a, b].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 1e4) || Math.abs(a - b) > 1e3)
+        throw new Error("page range exceeds bounds");
       for (let i = Math.min(a, b); i <= Math.max(a, b); i++)
         out.add(i);
     } else if (/^\d+$/.test(t)) {
-      out.add(+t);
+      const page = +t;
+      if (!Number.isSafeInteger(page) || page < 1 || page > 1e4)
+        throw new Error("page number out of bounds");
+      out.add(page);
     } else {
       throw new Error(`bad pages value "${part}"`);
     }
   }
+  if (out.size > 1e3)
+    throw new Error("at most 1000 requested pages");
   return [...out].sort((x, y) => x - y);
 }
 var ok = (text) => ({ content: [{ type: "text", text }] });
@@ -75809,7 +75819,10 @@ var trunc = (s) => s.length > MAX_TEXT_CHARS ? s.slice(0, MAX_TEXT_CHARS) + `
 var handlers = {
   async pdf_info(ctx, args) {
     const info2 = await pdfInfo(readPdf(ctx.root, args.path));
-    return ok(JSON.stringify(info2, null, 2));
+    return ok(`${UNTRUSTED_NOTICE}
+<document-text>
+${trunc(JSON.stringify(info2, null, 2)).replaceAll("<", "&lt;").replaceAll(">", "&gt;")}
+</document-text>`);
   },
   async pdf_extract_text(ctx, args) {
     const pg = await extractText(readPdf(ctx.root, args.path), parsePagesList(args.pages));
@@ -75818,7 +75831,7 @@ var handlers = {
 ${p.text}`).join("\n");
     return ok(`${UNTRUSTED_NOTICE}
 <document-text>
-${trunc(body).slice(0, cap)}
+${trunc(body.replaceAll("<", "&lt;").replaceAll(">", "&gt;")).slice(0, cap)}
 </document-text>`);
   },
   async pdf_search_text(ctx, args) {
@@ -75827,7 +75840,7 @@ ${trunc(body).slice(0, cap)}
     });
     return ok(`${UNTRUSTED_NOTICE}
 ` + (hits.length === 0 ? "no matches" : `<document-text>
-${hits.map((h) => `p${h.page} L${h.line}: ${h.snippet}`).join("\n")}
+${trunc(hits.map((h) => `p${h.page} L${h.line}: ${h.snippet}`).join("\n").replaceAll("<", "&lt;").replaceAll(">", "&gt;"))}
 </document-text>`));
   },
   async pdf_edit_text(ctx, args) {
@@ -75931,7 +75944,7 @@ function createServer(root, opts = {}) {
   };
   reg("pdf_info", { description: "PDF metadata and per-page geometry (size, rotation)." + DATA_WARNING, inputSchema: { path: external_exports.string().describe("PDF path, relative to the server root") } }, async (a) => handlers.pdf_info(ctx, a));
   reg("pdf_extract_text", { description: "Extract text per page. Output is delimited and marked untrusted." + DATA_WARNING, inputSchema: { path: external_exports.string(), pages: external_exports.string().optional().describe('1-based pages, e.g. "1-3,5"'), max_chars: external_exports.number().int().positive().max(MAX_TEXT_CHARS).optional() } }, async (a) => handlers.pdf_extract_text(ctx, a));
-  reg("pdf_search_text", { description: "Search text; returns page/line/snippet hits." + DATA_WARNING, inputSchema: { path: external_exports.string(), query: external_exports.string().min(1), case_sensitive: external_exports.boolean().optional() } }, async (a) => handlers.pdf_search_text(ctx, a));
+  reg("pdf_search_text", { description: "Search text; returns page/line/snippet hits." + DATA_WARNING, inputSchema: { path: external_exports.string(), query: external_exports.string().min(1).max(1e3), case_sensitive: external_exports.boolean().optional() } }, async (a) => handlers.pdf_search_text(ctx, a));
   reg("pdf_edit_text", { description: 'Find/replace REAL text in content streams \u2014 the original bytes are deleted, not overlaid. Use replace="" to delete. Reports skipped lines honestly.', inputSchema: { path: external_exports.string(), find: external_exports.string().min(1), replace: external_exports.string(), output: external_exports.string().describe("output PDF path"), pages: external_exports.string().optional(), replace_all: external_exports.boolean().optional(), case_sensitive: external_exports.boolean().optional() } }, async (a) => handlers.pdf_edit_text(ctx, a));
   reg("pdf_redact_text", { description: "BURNED-IN redaction of every line containing the text: bytes deleted, unrecoverable. The response includes the machine-readable redaction report (pages, regions, strings checked, byte-scan + extraction verification, pass/fail). Refuses (throws, nothing written) when removal cannot be proven \u2014 never faked.", inputSchema: { path: external_exports.string(), find: external_exports.string().min(1), output: external_exports.string(), pages: external_exports.string().optional(), case_sensitive: external_exports.boolean().optional() } }, async (a) => handlers.pdf_redact_text(ctx, a));
   reg("pdf_redact_rect", { description: "BURNED-IN redaction of rectangles [{page (1-based), x, y, w, h}] in PDF points, origin bottom-left. Fully-covered text lines are deleted from the file. The response includes the machine-readable redaction report (byte-scan + extraction verification, pass/fail). Refuses (throws, nothing written) when removal cannot be proven.", inputSchema: { path: external_exports.string(), output: external_exports.string(), rects: external_exports.array(external_exports.object({ page: external_exports.number().int().positive(), x: external_exports.number(), y: external_exports.number(), w: external_exports.number().positive(), h: external_exports.number().positive() })).min(1) } }, async (a) => handlers.pdf_redact_rect(ctx, a));
@@ -75961,16 +75974,19 @@ async function main() {
     } else if (args[i] === "--help") {
       process.stdout.write("pdfstudio-mcp [--root DIR] [--read-only]  \u2014 MCP server over stdio; all paths resolve inside DIR.\n  --read-only registers only the 3 read tools (pdf_info, pdf_extract_text, pdf_search_text).\n");
       process.exit(0);
-    }
+    } else
+      throw new Error(`unknown or incomplete option: ${args[i]}`);
   }
   const server = createServer(root, { readOnly });
   await server.connect(new StdioServerTransport());
 }
-main().catch((e) => {
-  process.stderr.write(`pdfstudio-mcp: ${e?.message ?? e}
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  main().catch((e) => {
+    process.stderr.write(`pdfstudio-mcp: ${e?.message ?? e}
 `);
-  process.exit(1);
-});
+    process.exit(1);
+  });
+}
 export {
   MAX_TEXT_CHARS,
   READ_TOOLS,

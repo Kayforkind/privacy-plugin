@@ -1,8 +1,10 @@
-# navigatorslab-privacy-tools
+# navigatorslab-privacy-tools 0.2.2
+
+> Read-only local PDF MCP parsing. Extracted content enters your AI client and may reach its model provider.
 
 **Let your AI agent read a PDF without uploading it anywhere.**
 
-A Claude Code plugin that gives the agent local, read-only PDF tools (inspect, search, extract text) and a skill that checks a document for sensitive text before you share it. The PDF never leaves your machine, and the tools cannot modify the file.
+A Claude Code plugin that gives the agent local, read-only PDF tools (inspect, search, extract text) and a skill that checks a document for sensitive text before you share it. The server does not upload PDFs or modify them. **Extracted text is returned to your AI client, which may send it to its model provider.** Review that client's privacy settings and obtain consent before using sensitive documents.
 
 ## What you get
 
@@ -10,7 +12,7 @@ A Claude Code plugin that gives the agent local, read-only PDF tools (inspect, s
 - **Read tools:** `pdf_info`, `pdf_extract_text`, `pdf_search_text`.
 - **Skill `check-pdf-before-sharing`:** the agent searches the document for terms you name (a name, an account number, an address), pulls only the pages with hits, and reports each hit with its page and context.
 
-Every tool result is marked as untrusted content, so text inside a PDF is treated as data, not as instructions.
+Every read-tool result, including metadata, is marked as untrusted content; embedded delimiters are escaped. This helps the agent distinguish data from instructions, but is not a guarantee against prompt injection.
 
 ## Install
 
@@ -38,6 +40,9 @@ The validator checks, without installing anything:
 - that every skill's frontmatter name matches its folder and has a description
 - that the server starts over stdio as configured and lists the read tools
 - that a read-only server exposes **no** write tools
+- real metadata, extraction and search calls against a bundled fixture
+- rejection of existing outside-root PDFs through absolute paths, traversal and directory symlinks/junctions; huge page ranges, overlong search input and direct write-tool calls
+- that fixture bytes remain unchanged
 
 Exit `0` is valid, `1` lists the problems. A deliberately writable config fails the validator, which is the check that catches an accidental write-enabled setup.
 
@@ -50,7 +55,9 @@ cd ../NavigatorsLab-PDF-Studio/packages/mcp && npm run build
 cd - && npx esbuild ../NavigatorsLab-PDF-Studio/packages/mcp/dist/index.js --bundle --platform=node --format=esm --target=node20 --outfile=server/pdfstudio-mcp.mjs
 ```
 
-The bundle prints harmless warnings about optional canvas polyfills. Text extraction and search do not use them.
+Also ship `pdfjs-dist/legacy/build/pdf.worker.mjs` beside the server: PDF.js imports it at runtime even for local text extraction. Missing it makes extraction and search fail. The included synthetic fixture exercises this dependency.
+
+Inputs are limited to 25 MiB; page ranges to 1,000 pages with page numbers at most 10,000; search queries to 1,000 characters; read responses to 50,000 characters. The chosen server root is the client's working directory (`--root .`), not a per-file consent sandbox. Use a dedicated document folder. Resource caps do not replace OS process memory/time limits or stop filesystem races caused by another local process.
 
 ## Status
 
@@ -67,3 +74,7 @@ The bundle prints harmless warnings about optional canvas polyfills. Text extrac
 ## License
 
 MIT
+
+## Release verification
+
+Use a supported Node LTS (22 or 24). Run `npm ci --ignore-scripts` followed by `npm run verify`. The security workflow runs the regression suite on Linux and Windows; it has not yet been executed remotely for this local change. New report/output files are created exclusively; choose fresh filenames or output folders for repeat runs. See [SECURITY.md](SECURITY.md) for the threat model and disclosure guidance.

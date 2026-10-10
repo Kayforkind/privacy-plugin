@@ -1,12 +1,15 @@
 {
   "name": "navigatorslab",
-  "owner": { "name": "NavigatorsLab" },
+  "description": "Read-only local PDF tools for Claude Code; extracted content may reach your configured model provider.",
+  "owner": {
+    "name": "NavigatorsLab"
+  },
   "plugins": [
     {
       "name": "navigatorslab-privacy-tools",
       "source": "./",
-      "description": "Local-only PDF tools for AI agents: inspect, search and extract text from PDFs without uploading them. Read-only by default.",
-      "version": "0.2.0"
+      "description": "Read-only PDF MCP tools with local parsing. Extracted text is returned to the AI client and may reach its model provider.",
+      "version": "0.2.2"
     }
   ]
 }

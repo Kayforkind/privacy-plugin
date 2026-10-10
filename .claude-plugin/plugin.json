@@ -1,7 +1,7 @@
 {
   "name": "navigatorslab-privacy-tools",
-  "version": "0.2.0",
-  "description": "Local-only PDF tools for AI agents: inspect, search and extract text from PDFs without uploading them. Read-only by default.",
+  "version": "0.2.2",
+  "description": "Read-only PDF MCP tools with local parsing. Extracted text is returned to the AI client and may reach its model provider.",
   "author": {
     "name": "NavigatorsLab"
   },
@@ -14,8 +14,5 @@
     "mcp"
   ],
   "homepage": "https://github.com/Kayforkind/privacy-plugin",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Kayforkind/privacy-plugin"
-  }
+  "repository": "https://github.com/Kayforkind/privacy-plugin"
 }
